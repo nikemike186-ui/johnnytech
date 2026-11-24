@@ -8,10 +8,13 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
 
 import appCss from "../styles.css?url";
 import { Navbar, Footer } from "../components/Shell";
+import { StoreProvider, type StoreState } from "../lib/store";
+import { loadStore, persistStore } from "../lib/store-api";
 
 function NotFoundComponent() {
   return (
@@ -71,6 +74,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  loader: () => loadStore(),
   head: () => ({
     // Replace these placeholders with the app's name and description when first building the app.
     // Each content route, / included, must still set its own head(). Never add og:image or
@@ -133,13 +137,18 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const initialStore = Route.useLoaderData();
+  const persist = useServerFn(persistStore);
+  const persistState = useCallback((state: StoreState) => persist({ data: state }), [persist]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Navbar />
-      <Outlet />
-      <Footer />
+      <StoreProvider initialState={initialStore} persist={persistState}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Navbar />
+        <Outlet />
+        <Footer />
+      </StoreProvider>
     </QueryClientProvider>
   );
 }

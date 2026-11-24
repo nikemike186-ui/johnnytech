@@ -1,29 +1,17 @@
-import { describe, it, expect } from "vitest";
 import {
   estimateTradeInCredit,
   defaultState,
-  setStore,
   buyMessage,
   formatPhoneNumber,
+  restoreState,
+  StoreProvider,
+  useStore,
+  useStoreActions,
   waLink,
 } from "./store";
-import { renderHook } from "@testing-library/react";
-import { beforeEach, vi } from "vitest";
-
-const storage = new Map<string, string>();
-
-beforeEach(() => {
-  storage.clear();
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
-      removeItem: (key: string) => storage.delete(key),
-      clear: () => storage.clear(),
-    },
-  });
-});
+import { act, renderHook } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { createElement, type ReactNode } from "react";
 
 describe("trade-in valuation", () => {
   it("applies each condition rate to the catalog price", () => {
@@ -34,7 +22,6 @@ describe("trade-in valuation", () => {
   });
   it("rounds the estimate to the nearest $5", () =>
     expect(estimateTradeInCredit(323, "mint")).toBe(220));
-  it("default admin PIN is 1234", () => expect(defaultState().settings.pin).toBe("1234"));
 });
 
 describe("inventory", () => {
@@ -89,78 +76,52 @@ describe("inventory", () => {
     );
   });
 
-  it.each(["v1", "v2", "v3"])(
-    "migrates %s localStorage into the current catalog",
-    async (version) => {
-      const previousState = defaultState();
-      const oldPhone = {
-        id: "1",
-        model: "iPhone 16 Pro Max",
-        category: "iphone",
-        storage: "256GB",
-        condition: "new",
-        battery: 100,
-        colorName: "Desert Titanium",
-        colorHex: "#BFA48F",
-        price: 1199,
-        featured: true,
-        inStock: true,
-      };
-      const customAccessory = {
-        id: "custom-case",
-        model: "Custom Case",
-        category: "accessory",
-        accessoryType: "Case",
-        description: "Custom item",
-        compatibleWith: "iPhone",
-        price: 9,
-        featured: false,
-        inStock: true,
-      };
-      storage.set(
-        `johnny-tech-store-${version}`,
-        JSON.stringify({
-          ...previousState,
-          settings: {
-            ...previousState.settings,
-            tagline: "Your Next iPhone. New or Certified Pre-Owned.",
-            whatsapp: "+263 71 227 9955",
-          },
-          inventory: [
-            oldPhone,
-            customAccessory,
-            ...previousState.inventory.filter(
-              (product) => product.category === "accessory" || product.category === "samsung",
-            ),
-          ],
-        }),
-      );
-      await vi.resetModules();
-      const migratedStore = await import("./store");
-      const { result } = renderHook(() => migratedStore.useStore());
-      expect(result.current.settings.whatsapp).toBe("263712279955");
-      expect(result.current.settings.tagline).toBe("Your Next Phone. New or Certified Pre-Owned.");
-      const iphones = result.current.inventory.filter((product) => product.category === "iphone");
-      expect(iphones).toHaveLength(37);
-      expect(iphones.find((product) => product.id === "iphone-16-pro-max-256")?.price).toBe(1200);
-      expect(result.current.inventory.some((product) => product.id === "custom-case")).toBe(true);
-      expect(
-        result.current.inventory.filter((product) => product.category === "samsung"),
-      ).toHaveLength(33);
-      expect(
-        result.current.inventory.filter((product) => product.category === "ipad"),
-      ).toHaveLength(3);
-      expect(storage.has("johnny-tech-store-v4")).toBe(true);
-    },
-  );
+  it("restores valid public store data without an admin credential", () => {
+    const state = defaultState();
+    expect(restoreState(state)).toEqual(state);
+    expect(restoreState({ ...state, settings: { ...state.settings, pin: "1234" } })).toEqual(state);
+  });
 
-  it("restores accessory inventory from localStorage after a reload", async () => {
-    const accessory = defaultState().inventory.find((product) => product.category === "accessory")!;
-    setStore((state) => ({ ...state, inventory: [accessory, ...state.inventory] }));
-    await vi.resetModules();
-    const restoredStore = await import("./store");
-    const { result } = renderHook(() => restoredStore.useStore());
-    expect(result.current.inventory[0]?.id).toBe(accessory.id);
+  it("persists provider updates and exposes the latest store state", async () => {
+    const initialState = defaultState();
+    const persist = vi.fn(async (state: typeof initialState) => state);
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StoreProvider, { initialState, persist }, children);
+    const { result } = renderHook(() => ({ store: useStore(), update: useStoreActions() }), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await result.current.update((state) => ({
+        ...state,
+        settings: { ...state.settings, storeName: "Updated Store" },
+      }));
+    });
+
+    expect(persist).toHaveBeenCalledOnce();
+    expect(result.current.store.settings.storeName).toBe("Updated Store");
+  });
+
+  it("reverts a failed store write and reports the persistence failure", async () => {
+    const initialState = defaultState();
+    const persist = vi.fn(async (state: typeof initialState) => state);
+    persist.mockRejectedValue(new Error("D1 unavailable"));
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StoreProvider, { initialState, persist }, children);
+    const { result } = renderHook(() => ({ store: useStore(), update: useStoreActions() }), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.update((state) => ({
+          ...state,
+          settings: { ...state.settings, storeName: "Not persisted" },
+        })),
+      ).rejects.toThrow("D1 unavailable");
+    });
+
+    expect(result.current.store.settings.storeName).toBe(initialState.settings.storeName);
   });
 
   it("creates an order summary for iPhones, Samsung phones, and accessories", () => {

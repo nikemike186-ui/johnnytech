@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Eye, EyeOff, Lock, Trash2 } from "lucide-react";
 import {
   useStore,
-  setStore,
-  resetStore,
+  useStoreActions,
   defaultState,
   type Accessory,
   type Condition,
@@ -13,6 +13,7 @@ import {
   type Tablet,
   type Product,
 } from "@/lib/store";
+import { changeAdminPin, getAdminSession, loginAdmin, logoutAdmin } from "@/lib/store-api";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -28,26 +29,66 @@ export const Route = createFileRoute("/admin")({
 });
 
 function Admin() {
-  const { settings } = useStore();
   const [ok, setOk] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
+  const checkSession = useServerFn(getAdminSession);
+  const signIn = useServerFn(loginAdmin);
+  const signOut = useServerFn(logoutAdmin);
+  const updatePin = useServerFn(changeAdminPin);
+
+  useEffect(() => {
+    checkSession()
+      .then(setOk)
+      .catch((error: unknown) => {
+        console.error("Unable to check admin session.", error);
+        setAuthError("Unable to verify your session. Please refresh and try again.");
+      })
+      .finally(() => setCheckingSession(false));
+  }, [checkSession]);
+
+  const submitPin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setAuthError("");
+    try {
+      const result = await signIn({ data: { pin } });
+      if (result.success) setOk(true);
+      else {
+        setErr(true);
+        setPin("");
+        setShakeKey((key) => key + 1);
+      }
+    } catch (error) {
+      console.error("Unable to authenticate admin.", error);
+      setAuthError("Unable to sign in. Please try again.");
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setOk(false);
+    } catch (error) {
+      console.error("Unable to end admin session.", error);
+      setAuthError("Unable to sign out. Please try again.");
+    }
+  };
+
+  const handlePinChange = async (nextPin: string) => {
+    await updatePin({ data: { pin: nextPin } });
+  };
+
+  if (checkingSession) return <main className="min-h-[70vh]" aria-label="Checking admin session" />;
   if (!ok)
     return (
       <main className="flex min-h-[70vh] items-center justify-center px-4">
         <form
           key={shakeKey}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (pin === settings.pin) setOk(true);
-            else {
-              setErr(true);
-              setPin("");
-              setShakeKey((key) => key + 1);
-            }
-          }}
+          onSubmit={submitPin}
           className={`bento-card relative w-full max-w-sm overflow-hidden border border-white/10 p-8 text-center shadow-[0_0_54px_rgba(120,90,255,0.14)] backdrop-blur-2xl ${
             err ? "animate-pin-shake ring-1 ring-destructive/50" : ""
           }`}
@@ -72,6 +113,7 @@ function Admin() {
                 onChange={(e) => {
                   setPin(e.target.value);
                   setErr(false);
+                  setAuthError("");
                 }}
                 className={`field w-full pr-12 text-center text-2xl tracking-[0.5em] ${
                   err
@@ -79,6 +121,9 @@ function Admin() {
                     : ""
                 }`}
                 maxLength={8}
+                minLength={4}
+                pattern="[0-9]{4,8}"
+                required
                 aria-label="PIN"
                 aria-invalid={err}
                 aria-describedby={err ? "pin-error" : undefined}
@@ -98,6 +143,11 @@ function Admin() {
                 Incorrect PIN. Please try again.
               </p>
             )}
+            {authError && (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {authError}
+              </p>
+            )}
             <button className="btn-apple mt-5 w-full">Unlock</button>
             <Link
               to="/shop"
@@ -109,7 +159,7 @@ function Admin() {
         </form>
       </main>
     );
-  return <Dashboard />;
+  return <Dashboard onSignOut={handleSignOut} onChangePin={handlePinChange} />;
 }
 
 type PhoneDraft = Omit<Phone, "id" | "category" | "inStock">;
@@ -149,16 +199,36 @@ const blankAccessory: AccessoryDraft = {
   featured: false,
 };
 
-function Dashboard() {
+function Dashboard({
+  onSignOut,
+  onChangePin,
+}: {
+  onSignOut: () => Promise<void>;
+  onChangePin: (pin: string) => Promise<void>;
+}) {
   const { settings, inventory } = useStore();
+  const setStore = useStoreActions();
   const [s, setS] = useState(settings);
+  const [newPin, setNewPin] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
   const [kind, setKind] = useState<Product["category"]>("iphone");
   const [phone, setPhone] = useState(blankPhone);
   const [samsung, setSamsung] = useState(blankSamsung);
   const [tablet, setTablet] = useState(blankTablet);
   const [accessory, setAccessory] = useState(blankAccessory);
+  const updateStore = (
+    update: (state: ReturnType<typeof useStore>) => ReturnType<typeof useStore>,
+  ) => {
+    setSaveError("");
+    setSaveMessage("");
+    void setStore(update).catch((error: unknown) => {
+      console.error("Unable to save Johnny Tech store data.", error);
+      setSaveError("Changes could not be saved. Check your connection and try again.");
+    });
+  };
   const upd = (id: string, patch: Partial<Pick<Product, "price" | "featured" | "inStock">>) =>
-    setStore((st) => ({
+    updateStore((st) => ({
       ...st,
       inventory: st.inventory.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
@@ -174,7 +244,7 @@ function Dashboard() {
             ? { ...tablet, id, category: "ipad", inStock: true }
             : { ...accessory, id, category: "accessory", inStock: true };
     if (!product.model.trim()) return;
-    setStore((st) => ({ ...st, inventory: [product, ...st.inventory] }));
+    updateStore((st) => ({ ...st, inventory: [product, ...st.inventory] }));
     setPhone(blankPhone);
     setSamsung(blankSamsung);
     setTablet(blankTablet);
@@ -185,11 +255,14 @@ function Dashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-semibold tracking-tight">Dashboard.</h1>
         <div className="flex flex-wrap justify-end gap-2">
+          <button onClick={() => void onSignOut()} className="btn-ghost text-sm">
+            Sign out
+          </button>
           <button
             onClick={() => {
               if (confirm("Reset inventory to the default catalog?")) {
                 const catalog = defaultState().inventory;
-                setStore((st) => ({ ...st, inventory: catalog }));
+                updateStore((st) => ({ ...st, inventory: catalog }));
               }
             }}
             className="btn-ghost text-sm"
@@ -199,8 +272,7 @@ function Dashboard() {
           <button
             onClick={() => {
               if (confirm("Reset all settings and inventory to defaults?")) {
-                resetStore();
-                location.reload();
+                updateStore(() => defaultState());
               }
             }}
             className="btn-ghost text-sm"
@@ -234,21 +306,67 @@ function Dashboard() {
               onChange={(e) => setS({ ...s, tagline: e.target.value })}
             />
           </L>
-          <L t="Admin PIN">
-            <input
-              className="field w-full"
-              value={s.pin}
-              onChange={(e) => setS({ ...s, pin: e.target.value })}
-            />
-          </L>
         </div>
         <button
-          onClick={() => setStore((st) => ({ ...st, settings: s }))}
+          onClick={() =>
+            updateStore((st) => ({
+              ...st,
+              settings: { storeName: s.storeName, tagline: s.tagline, whatsapp: s.whatsapp },
+            }))
+          }
           className="btn-apple mt-5"
         >
           Save settings
         </button>
+        <div className="mt-8 border-t border-border pt-6">
+          <h3 className="font-semibold">Admin PIN</h3>
+          <form
+            className="mt-3 flex flex-col gap-3 sm:flex-row"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setSaveError("");
+              setSaveMessage("");
+              try {
+                await onChangePin(newPin);
+                setNewPin("");
+                setSaveMessage("Admin PIN updated.");
+              } catch (error) {
+                console.error("Unable to update admin PIN.", error);
+                setSaveError("Admin PIN could not be updated. Please try again.");
+              }
+            }}
+          >
+            <input
+              className="field w-full sm:max-w-xs"
+              type="password"
+              inputMode="numeric"
+              minLength={4}
+              maxLength={8}
+              pattern="[0-9]{4,8}"
+              aria-label="New admin PIN"
+              placeholder="4–8 digits"
+              value={newPin}
+              onChange={(event) => setNewPin(event.target.value)}
+              required
+            />
+            <button className="btn-apple">Update PIN</button>
+          </form>
+        </div>
       </section>
+
+      {saveError && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
+        >
+          {saveError}
+        </p>
+      )}
+      {saveMessage && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {saveMessage}
+        </p>
+      )}
 
       <section className="bento-card p-6 sm:p-8">
         <h2 className="text-xl font-semibold">Add Product</h2>
@@ -531,8 +649,16 @@ function Dashboard() {
                 <input
                   type="number"
                   className="field w-24 py-1"
-                  value={p.price}
-                  onChange={(e) => upd(p.id, { price: +e.target.value })}
+                  min={0}
+                  key={`${p.id}:${p.price}`}
+                  defaultValue={p.price}
+                  onBlur={(e) => {
+                    if (e.currentTarget.value === "") return;
+                    const price = Number(e.currentTarget.value);
+                    if (Number.isFinite(price) && price >= 0 && price !== p.price) {
+                      upd(p.id, { price });
+                    }
+                  }}
                   aria-label="Price"
                 />
               </label>
@@ -551,7 +677,7 @@ function Dashboard() {
               <button
                 aria-label="Delete"
                 onClick={() =>
-                  setStore((st) => ({
+                  updateStore((st) => ({
                     ...st,
                     inventory: st.inventory.filter((x) => x.id !== p.id),
                   }))

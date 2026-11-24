@@ -3,5 +3,13 @@
   "name": "johnny-tech-demo",
   "compatibility_date": "2026-11-24",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry"
+  "main": "@tanstack/react-start/server-entry",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "johnny-tech-db",
+      "database_id": "532f4383-0d56-4630-9953-e251ed4e31cf",
+      "migrations_dir": "migrations",
+    },
+  ],
 }

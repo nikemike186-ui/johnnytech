@@ -1,19 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TradeIn } from "@/routes/trade-in";
-
-const storage = new Map<string, string>();
-
-beforeEach(() => {
-  storage.clear();
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
-    },
-  });
-});
 
 describe("catalog-linked trade-in calculator", () => {
   it("calculates a Samsung credit from selected storage and builds an inspection-aware WhatsApp inquiry", () => {

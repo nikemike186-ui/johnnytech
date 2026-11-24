@@ -1,20 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Footer, ProductCard } from "@/components/Shell";
 import { defaultState } from "@/lib/store";
-
-const storage = new Map<string, string>();
-
-beforeEach(() => {
-  storage.clear();
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
-    },
-  });
-});
 
 const inventory = defaultState().inventory;
 const product = (id: string) => inventory.find((item) => item.id === id)!;

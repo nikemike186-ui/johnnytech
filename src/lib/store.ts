@@ -1,4 +1,13 @@
-import { useSyncExternalStore } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import type { ReactNode } from "react";
 
 export type Condition = "new" | "preowned";
 export interface ProductBase {
@@ -40,20 +49,12 @@ export interface Settings {
   storeName: string;
   tagline: string;
   whatsapp: string;
-  pin: string;
 }
 export interface StoreState {
   settings: Settings;
   inventory: Product[];
 }
 
-const KEY = "johnny-tech-store-v4";
-const LEGACY_KEYS = [
-  "johnny-tech-store-v3",
-  "johnny-tech-store-v2",
-  "johnny-tech-store-v1",
-] as const;
-const LEGACY_PHONE_IDS = new Set(["1", "2", "3", "4", "5", "6", "7", "8"]);
 export const DEFAULT_WHATSAPP_NUMBER = "263712279955";
 
 export function defaultState(): StoreState {
@@ -132,7 +133,6 @@ export function defaultState(): StoreState {
       storeName: "Johnny Tech",
       tagline: "Your Next Phone. New or Certified Pre-Owned.",
       whatsapp: DEFAULT_WHATSAPP_NUMBER,
-      pin: "1234",
     },
     inventory: [
       p("iphone-11-pro-max-256", "iPhone 11 Pro Max", "256GB", 320),
@@ -252,10 +252,6 @@ export function defaultState(): StoreState {
   };
 }
 
-let cache: StoreState | null = null;
-const listeners = new Set<() => void>();
-const serverSnap = defaultState();
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -302,7 +298,7 @@ function isProduct(value: unknown): value is StoredProduct {
   );
 }
 
-function restoreState(value: unknown): StoreState | null {
+export function restoreState(value: unknown): StoreState | null {
   if (!isRecord(value) || !isRecord(value["settings"]) || !Array.isArray(value["inventory"]))
     return null;
   const settings = value["settings"];
@@ -311,7 +307,6 @@ function restoreState(value: unknown): StoreState | null {
     typeof settings["storeName"] !== "string" ||
     typeof settings["tagline"] !== "string" ||
     typeof settings["whatsapp"] !== "string" ||
-    typeof settings["pin"] !== "string" ||
     !inventory.every(isProduct)
   )
     return null;
@@ -320,7 +315,6 @@ function restoreState(value: unknown): StoreState | null {
       storeName: settings["storeName"],
       tagline: settings["tagline"],
       whatsapp: settings["whatsapp"],
-      pin: settings["pin"],
     },
     inventory: inventory.map((product): Product =>
       product.category === "accessory" ||
@@ -332,88 +326,71 @@ function restoreState(value: unknown): StoreState | null {
   };
 }
 
-function read(): StoreState {
-  if (cache) return cache;
-  if (typeof window === "undefined") return serverSnap;
-  const currentRaw = window.localStorage.getItem(KEY);
-  const legacyKey =
-    currentRaw === null
-      ? LEGACY_KEYS.find((key) => window.localStorage.getItem(key) !== null)
-      : undefined;
-  const legacyRaw = legacyKey ? window.localStorage.getItem(legacyKey) : null;
-  const raw = currentRaw ?? legacyRaw;
-  if (raw === null) {
-    cache = defaultState();
-    return cache;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    console.error("Unable to parse Johnny Tech inventory from localStorage.", error);
-    cache = defaultState();
-    return cache;
-  }
-  const restored = restoreState(parsed);
-  if (!restored) {
-    console.error("Johnny Tech inventory in localStorage has an invalid shape; using defaults.");
-    cache = defaultState();
-    return cache;
-  }
-  cache = restored;
-  if (legacyRaw !== null) {
-    const defaults = defaultState();
-    const retainedInventory = cache.inventory.filter(
-      (product) => product.category !== "iphone" || !LEGACY_PHONE_IDS.has(product.id),
-    );
-    const seededIds = new Set(retainedInventory.map((product) => product.id));
-    cache = {
-      ...cache,
-      settings: {
-        ...cache.settings,
-        whatsapp: defaults.settings.whatsapp,
-        tagline:
-          cache.settings.tagline === "Your Next iPhone. New or Certified Pre-Owned."
-            ? defaults.settings.tagline
-            : cache.settings.tagline,
-      },
-      inventory: [
-        ...retainedInventory,
-        ...defaults.inventory.filter((product) => !seededIds.has(product.id)),
-      ],
-    };
-    window.localStorage.setItem(KEY, JSON.stringify(cache));
-  }
-  return cache!;
-}
-export function setStore(fn: (s: StoreState) => StoreState) {
-  const next = fn(read());
-  if (typeof window !== "undefined") window.localStorage.setItem(KEY, JSON.stringify(next));
-  cache = next;
-  listeners.forEach((l) => l());
-}
-export function resetStore() {
-  setStore(() => defaultState());
-}
-export function useStore(): StoreState {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      const h = (e: StorageEvent) => {
-        if (e.key === KEY) {
-          cache = null;
-          l();
+type StoreContextValue = {
+  state: StoreState;
+  updateStore: (update: (state: StoreState) => StoreState) => Promise<void>;
+};
+
+const StoreContext = createContext<StoreContextValue | null>(null);
+
+export function StoreProvider({
+  initialState,
+  persist,
+  children,
+}: {
+  initialState: StoreState;
+  persist: (state: StoreState) => Promise<StoreState>;
+  children?: ReactNode;
+}) {
+  const [state, setState] = useState(initialState);
+  const stateRef = useRef(initialState);
+  const persistedRef = useRef(initialState);
+  const writeQueue = useRef(Promise.resolve());
+
+  useEffect(() => {
+    stateRef.current = initialState;
+    persistedRef.current = initialState;
+    setState(initialState);
+  }, [initialState]);
+
+  const updateStore = useCallback(
+    (update: (current: StoreState) => StoreState) => {
+      const next = update(stateRef.current);
+      stateRef.current = next;
+      setState(next);
+      const write = writeQueue.current.then(async () => {
+        try {
+          const saved = await persist(next);
+          persistedRef.current = saved;
+          if (stateRef.current === next) {
+            stateRef.current = saved;
+            setState(saved);
+          }
+        } catch (error) {
+          if (stateRef.current === next) {
+            stateRef.current = persistedRef.current;
+            setState(persistedRef.current);
+          }
+          throw error;
         }
-      };
-      window.addEventListener("storage", h);
-      return () => {
-        listeners.delete(l);
-        window.removeEventListener("storage", h);
-      };
+      });
+      writeQueue.current = write.catch(() => {});
+      return write;
     },
-    read,
-    () => serverSnap,
+    [persist],
   );
+
+  return createElement(StoreContext.Provider, { value: { state, updateStore } }, children);
+}
+
+export function useStore(): StoreState {
+  return useContext(StoreContext)?.state ?? defaultState();
+}
+
+export function useStoreActions() {
+  const context = useContext(StoreContext);
+  if (!context) throw new Error("Store actions are only available inside StoreProvider.");
+  return context.updateStore;
 }
 
 export const conditionLabel = (c: Condition) =>

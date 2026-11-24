@@ -1,20 +1,41 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { routeTree } from "@/routeTree.gen";
 
-const storage = new Map<string, string>();
+const serverFns = vi.hoisted(() => ({
+  loadStore: vi.fn(),
+  persistStore: vi.fn(),
+  getAdminSession: vi.fn(),
+  loginAdmin: vi.fn(),
+  logoutAdmin: vi.fn(),
+  changeAdminPin: vi.fn(),
+}));
+
+vi.mock("@/lib/store-api", () => serverFns);
+vi.mock("@tanstack/react-start", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-start")>();
+  return { ...actual, useServerFn: (serverFn: unknown) => serverFn };
+});
 
 beforeEach(() => {
-  storage.clear();
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
+  vi.clearAllMocks();
+  serverFns.loadStore.mockResolvedValue({
+    settings: {
+      storeName: "Johnny Tech",
+      tagline: "Your Next Phone. New or Certified Pre-Owned.",
+      whatsapp: "263712279955",
     },
+    inventory: [],
   });
+  serverFns.persistStore.mockResolvedValue(undefined);
+  serverFns.getAdminSession.mockResolvedValue(false);
+  serverFns.loginAdmin.mockImplementation(async ({ data }: { data: { pin: string } }) => ({
+    success: data.pin === "1234",
+  }));
+  serverFns.logoutAdmin.mockResolvedValue({ success: true });
+  serverFns.changeAdminPin.mockResolvedValue({ success: true });
 });
 
 async function renderAdmin() {
@@ -31,7 +52,7 @@ describe("admin access", () => {
   it("supports show/hide, shakes and clears on failure, and links back to the shop", async () => {
     await renderAdmin();
 
-    expect(screen.getByText("JOHNNY TECH • STAFF PORTAL")).toBeInTheDocument();
+    expect(await screen.findByText("JOHNNY TECH • STAFF PORTAL")).toBeInTheDocument();
     const input = screen.getByLabelText("PIN");
     expect(input).toHaveAttribute("type", "password");
     expect(input).toHaveAttribute("inputmode", "numeric");
@@ -53,10 +74,11 @@ describe("admin access", () => {
     );
   });
 
-  it("keeps the existing PIN authentication check", async () => {
+  it("authenticates against the server and opens the dashboard", async () => {
     await renderAdmin();
-    fireEvent.change(screen.getByLabelText("PIN"), { target: { value: "1234" } });
+    fireEvent.change(await screen.findByLabelText("PIN"), { target: { value: "1234" } });
     fireEvent.submit(document.querySelector("form")!);
     expect(await screen.findByRole("heading", { name: "Dashboard." })).toBeInTheDocument();
+    expect(serverFns.loginAdmin).toHaveBeenCalledWith({ data: { pin: "1234" } });
   });
 });
