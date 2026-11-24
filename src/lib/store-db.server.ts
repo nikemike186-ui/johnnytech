@@ -164,31 +164,66 @@ export async function hasAdminSession(): Promise<boolean> {
   return session !== null;
 }
 
+type AdminCredential = {
+  salt: string;
+  hash: string;
+  secret_salt: string | null;
+  secret_hash: string | null;
+};
+
 async function ensureAdminCredential(): Promise<{ salt: string; hash: string }> {
   const credential = await env.DB.prepare(
-    "SELECT salt, hash FROM admin_credentials WHERE key = 'pin'",
-  ).first<{ salt: string; hash: string }>();
-  if (credential) return credential;
-
+    "SELECT salt, hash, secret_salt, secret_hash FROM admin_credentials WHERE key = 'pin'",
+  ).first<AdminCredential>();
   const initialPin = env.ADMIN_PIN;
-  if (!initialPin || !/^\d{4,8}$/.test(initialPin)) {
+  if (initialPin && !/^\d{4,8}$/.test(initialPin)) {
+    throw new Error("ADMIN_PIN must contain 4–8 digits.");
+  }
+  if (!credential && !initialPin) {
     throw new Error(
       "Set the ADMIN_PIN Wrangler secret to a 4–8 digit PIN before the first admin login.",
     );
   }
-  const salt = randomHex(16);
-  const hash = await hashPin(initialPin, salt);
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO admin_credentials (key, salt, hash) VALUES ('pin', ?, ?)",
-  )
-    .bind(salt, hash)
-    .run();
+  if (!credential) {
+    const salt = randomHex(16);
+    const secretSalt = randomHex(16);
+    const hash = await hashPin(initialPin!, salt);
+    const secretHash = await hashPin(initialPin!, secretSalt);
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO admin_credentials (key, salt, hash, secret_salt, secret_hash) VALUES ('pin', ?, ?, ?, ?)",
+    )
+      .bind(salt, hash, secretSalt, secretHash)
+      .run();
+    const initialized = await env.DB.prepare(
+      "SELECT salt, hash, secret_salt, secret_hash FROM admin_credentials WHERE key = 'pin'",
+    ).first<AdminCredential>();
+    if (!initialized) throw new Error("Unable to initialize the admin credential in D1.");
+    return initialized;
+  }
 
-  const initialized = await env.DB.prepare(
-    "SELECT salt, hash FROM admin_credentials WHERE key = 'pin'",
-  ).first<{ salt: string; hash: string }>();
-  if (!initialized) throw new Error("Unable to initialize the admin credential in D1.");
-  return initialized;
+  if (initialPin) {
+    const currentSecretHash = credential.secret_salt
+      ? await hashPin(initialPin, credential.secret_salt)
+      : null;
+    if (
+      !credential.secret_salt ||
+      !credential.secret_hash ||
+      !matchesHash(currentSecretHash!, credential.secret_hash)
+    ) {
+      const salt = randomHex(16);
+      const secretSalt = randomHex(16);
+      const hash = await hashPin(initialPin, salt);
+      const secretHash = await hashPin(initialPin, secretSalt);
+      await env.DB.prepare(
+        "UPDATE admin_credentials SET salt = ?, hash = ?, secret_salt = ?, secret_hash = ? WHERE key = 'pin'",
+      )
+        .bind(salt, hash, secretSalt, secretHash)
+        .run();
+      return { salt, hash };
+    }
+  }
+
+  return credential;
 }
 
 export async function verifyAdminPin(pin: string): Promise<{ success: boolean }> {
@@ -225,9 +260,10 @@ export async function updateAdminPin(pin: string): Promise<void> {
   const salt = randomHex(16);
   const hash = await hashPin(pin, salt);
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO admin_credentials (key, salt, hash) VALUES ('pin', ?, ?) ON CONFLICT(key) DO UPDATE SET salt = excluded.salt, hash = excluded.hash",
-    ).bind(salt, hash),
+    env.DB.prepare("UPDATE admin_credentials SET salt = ?, hash = ? WHERE key = 'pin'").bind(
+      salt,
+      hash,
+    ),
     env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash != ?").bind(currentSession),
   ]);
 }

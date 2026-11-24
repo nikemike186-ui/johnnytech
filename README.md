@@ -14,9 +14,11 @@ bunx wrangler d1 migrations apply johnny-tech-db --local
 bunx wrangler d1 migrations apply johnny-tech-db --remote
 ```
 
-Set the initial admin PIN as a Wrangler secret. It is salted and hashed into
-D1 the first time an admin signs in; the PIN is never included in public store
-data. For local development, create an ignored `.dev.vars` file containing
+Set the admin PIN as a Wrangler secret. It is salted and hashed into D1 on the
+first admin sign-in. If the secret changes, the D1 PIN is rotated to the new
+secret on the next sign-in; PIN changes made in the admin dashboard remain in
+effect until the secret is rotated again. The PIN is never included in public
+store data. For local development, create an ignored `.dev.vars` file containing
 `ADMIN_PIN=your-4-to-8-digit-pin`. For deployment, use:
 
 ```sh

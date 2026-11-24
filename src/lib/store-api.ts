@@ -34,7 +34,12 @@ export const loginAdmin = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const { verifyAdminPin } = await import("./store-db.server");
-    return verifyAdminPin(data.pin);
+    try {
+      return await verifyAdminPin(data.pin);
+    } catch (error) {
+      console.error("Admin sign-in could not complete.", error);
+      throw error;
+    }
   });
 
 export const logoutAdmin = createServerFn({ method: "POST" }).handler(async () => {

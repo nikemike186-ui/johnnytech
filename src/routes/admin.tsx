@@ -64,7 +64,9 @@ function Admin() {
       }
     } catch (error) {
       console.error("Unable to authenticate admin.", error);
-      setAuthError("Unable to sign in. Please try again.");
+      setAuthError(
+        "Sign-in service unavailable. Check the ADMIN_PIN secret and D1 migrations, then try again.",
+      );
     }
   };
 
