@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { defaultState, restoreState, type StoreState } from "./store";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
-const PIN_ITERATIONS = 120_000;
+const PIN_ITERATIONS = 100_000;
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
