@@ -78,21 +78,36 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Johnny Tech" },
-      { name: "description", content: "New and certified pre-owned iPhones" },
+      { name: "color-scheme", content: "dark" },
+      { title: "Johnny Tech | Authentic iPhones, Samsung & iPads in Harare" },
+      {
+        name: "description",
+        content:
+          "Shop authentic iPhones, Samsung phones, and iPads in Harare. Enjoy a 6-month warranty, free CBD delivery, and convenient WhatsApp ordering with Johnny Tech.",
+      },
       { name: "author", content: "Johnny Tech" },
-      { property: "og:title", content: "Johnny Tech" },
-      { property: "og:description", content: "New and certified pre-owned iPhones" },
+      {
+        property: "og:title",
+        content: "Johnny Tech | Authentic iPhones, Samsung & iPads in Harare",
+      },
+      {
+        property: "og:description",
+        content:
+          "Shop authentic iPhones, Samsung phones, and iPads in Harare. Enjoy a 6-month warranty, free CBD delivery, and convenient WhatsApp ordering with Johnny Tech.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-          ],
+    ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+      },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
@@ -104,7 +119,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>

@@ -1,13 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Lock, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Lock, Trash2 } from "lucide-react";
 import {
   useStore,
   setStore,
   resetStore,
+  defaultState,
   type Accessory,
   type Condition,
   type Phone,
+  type SamsungPhone,
+  type Tablet,
   type Product,
 } from "@/lib/store";
 
@@ -15,7 +18,7 @@ export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
       { title: "Admin — Johnny Tech" },
-      { name: "description", content: "Manage Johnny Tech store settings and iPhone inventory." },
+      { name: "description", content: "Manage Johnny Tech store settings and device inventory." },
       { property: "og:title", content: "Admin — Johnny Tech" },
       { property: "og:description", content: "Store management dashboard." },
       { name: "robots", content: "noindex" },
@@ -29,38 +32,80 @@ function Admin() {
   const [ok, setOk] = useState(false);
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
   if (!ok)
     return (
       <main className="flex min-h-[70vh] items-center justify-center px-4">
         <form
+          key={shakeKey}
           onSubmit={(e) => {
             e.preventDefault();
             if (pin === settings.pin) setOk(true);
             else {
               setErr(true);
               setPin("");
+              setShakeKey((key) => key + 1);
             }
           }}
-          className="bento-card w-full max-w-sm p-8 text-center"
+          className={`bento-card relative w-full max-w-sm overflow-hidden border border-white/10 p-8 text-center shadow-[0_0_54px_rgba(120,90,255,0.14)] backdrop-blur-2xl ${
+            err ? "animate-pin-shake ring-1 ring-destructive/50" : ""
+          }`}
         >
-          <Lock className="mx-auto h-8 w-8 text-primary" />
-          <h1 className="mt-4 text-2xl font-semibold">Admin Access</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Enter your PIN</p>
-          <input
-            type="password"
-            inputMode="numeric"
-            autoFocus
-            value={pin}
-            onChange={(e) => {
-              setPin(e.target.value);
-              setErr(false);
-            }}
-            className="field mt-6 w-full text-center text-2xl tracking-[0.5em]"
-            maxLength={8}
-            aria-label="PIN"
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-20 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
           />
-          {err && <p className="mt-2 text-sm text-destructive">Incorrect PIN</p>}
-          <button className="btn-apple mt-5 w-full">Unlock</button>
+          <div className="relative">
+            <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              JOHNNY TECH • STAFF PORTAL
+            </p>
+            <Lock className="mx-auto h-8 w-8 text-primary" />
+            <h1 className="mt-4 text-2xl font-semibold">Admin Access</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Enter your PIN</p>
+            <div className="relative mt-6">
+              <input
+                type={showPin ? "text" : "password"}
+                inputMode="numeric"
+                autoFocus
+                value={pin}
+                onChange={(e) => {
+                  setPin(e.target.value);
+                  setErr(false);
+                }}
+                className={`field w-full pr-12 text-center text-2xl tracking-[0.5em] ${
+                  err
+                    ? "border-destructive ring-1 ring-destructive/30 focus:border-destructive"
+                    : ""
+                }`}
+                maxLength={8}
+                aria-label="PIN"
+                aria-invalid={err}
+                aria-describedby={err ? "pin-error" : undefined}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPin((visible) => !visible)}
+                aria-label={showPin ? "Hide PIN" : "Show PIN"}
+                aria-pressed={showPin}
+                className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {err && (
+              <p id="pin-error" role="alert" className="mt-2 text-sm text-destructive">
+                Incorrect PIN. Please try again.
+              </p>
+            )}
+            <button className="btn-apple mt-5 w-full">Unlock</button>
+            <Link
+              to="/shop"
+              className="mt-5 inline-flex min-h-10 items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              ← Back to Storefront
+            </Link>
+          </div>
         </form>
       </main>
     );
@@ -68,6 +113,8 @@ function Admin() {
 }
 
 type PhoneDraft = Omit<Phone, "id" | "category" | "inStock">;
+type SamsungPhoneDraft = Omit<SamsungPhone, "id" | "category" | "inStock">;
+type TabletDraft = Omit<Tablet, "id" | "category" | "inStock">;
 type AccessoryDraft = Omit<Accessory, "id" | "category" | "inStock">;
 const blankPhone: PhoneDraft = {
   model: "",
@@ -76,6 +123,20 @@ const blankPhone: PhoneDraft = {
   battery: 100,
   colorName: "",
   colorHex: "#3C3C3D",
+  price: 0,
+  featured: false,
+};
+const blankSamsung: SamsungPhoneDraft = {
+  model: "",
+  condition: "new",
+  price: 0,
+  featured: false,
+};
+const blankTablet: TabletDraft = {
+  model: "",
+  storage: "128GB",
+  connectivity: "Wi-Fi",
+  condition: "new",
   price: 0,
   featured: false,
 };
@@ -93,6 +154,8 @@ function Dashboard() {
   const [s, setS] = useState(settings);
   const [kind, setKind] = useState<Product["category"]>("iphone");
   const [phone, setPhone] = useState(blankPhone);
+  const [samsung, setSamsung] = useState(blankSamsung);
+  const [tablet, setTablet] = useState(blankTablet);
   const [accessory, setAccessory] = useState(blankAccessory);
   const upd = (id: string, patch: Partial<Pick<Product, "price" | "featured" | "inStock">>) =>
     setStore((st) => ({
@@ -101,30 +164,50 @@ function Dashboard() {
     }));
   const addProduct = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const id = Date.now().toString();
     const product: Product =
       kind === "iphone"
-        ? { ...phone, id: Date.now().toString(), category: "iphone", inStock: true }
-        : { ...accessory, id: Date.now().toString(), category: "accessory", inStock: true };
+        ? { ...phone, id, category: "iphone", inStock: true }
+        : kind === "samsung"
+          ? { ...samsung, id, category: "samsung", inStock: true }
+          : kind === "ipad"
+            ? { ...tablet, id, category: "ipad", inStock: true }
+            : { ...accessory, id, category: "accessory", inStock: true };
     if (!product.model.trim()) return;
     setStore((st) => ({ ...st, inventory: [product, ...st.inventory] }));
     setPhone(blankPhone);
+    setSamsung(blankSamsung);
+    setTablet(blankTablet);
     setAccessory(blankAccessory);
   };
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 pt-12">
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-semibold tracking-tight">Dashboard.</h1>
-        <button
-          onClick={() => {
-            if (confirm("Reset all settings and inventory to defaults?")) {
-              resetStore();
-              location.reload();
-            }
-          }}
-          className="btn-ghost text-sm"
-        >
-          Reset to defaults
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            onClick={() => {
+              if (confirm("Reset inventory to the default catalog?")) {
+                const catalog = defaultState().inventory;
+                setStore((st) => ({ ...st, inventory: catalog }));
+              }
+            }}
+            className="btn-ghost text-sm"
+          >
+            Reset to Default Catalog
+          </button>
+          <button
+            onClick={() => {
+              if (confirm("Reset all settings and inventory to defaults?")) {
+                resetStore();
+                location.reload();
+              }
+            }}
+            className="btn-ghost text-sm"
+          >
+            Reset all defaults
+          </button>
+        </div>
       </div>
 
       <section className="bento-card p-6 sm:p-8">
@@ -177,20 +260,39 @@ function Dashboard() {
               onChange={(e) => setKind(e.target.value as Product["category"])}
             >
               <option value="iphone">iPhone</option>
+              <option value="ipad">iPad</option>
+              <option value="samsung">Samsung</option>
               <option value="accessory">Accessory</option>
             </select>
           </L>
-          <L t={kind === "iphone" ? "Model" : "Product name"}>
+          <L t={kind === "accessory" ? "Product name" : "Model"}>
             <input
               required
               className="field w-full"
-              placeholder={kind === "iphone" ? "iPhone 16 Pro" : "MagSafe Power Pack"}
-              value={kind === "iphone" ? phone.model : accessory.model}
-              onChange={(e) =>
+              placeholder={
                 kind === "iphone"
-                  ? setPhone({ ...phone, model: e.target.value })
-                  : setAccessory({ ...accessory, model: e.target.value })
+                  ? "iPhone 16 Pro"
+                  : kind === "ipad"
+                    ? "iPad 11th Gen"
+                    : kind === "samsung"
+                      ? "Samsung Galaxy S24"
+                      : "MagSafe Power Pack"
               }
+              value={
+                kind === "iphone"
+                  ? phone.model
+                  : kind === "ipad"
+                    ? tablet.model
+                    : kind === "samsung"
+                      ? samsung.model
+                      : accessory.model
+              }
+              onChange={(e) => {
+                if (kind === "iphone") setPhone({ ...phone, model: e.target.value });
+                else if (kind === "ipad") setTablet({ ...tablet, model: e.target.value });
+                else if (kind === "samsung") setSamsung({ ...samsung, model: e.target.value });
+                else setAccessory({ ...accessory, model: e.target.value });
+              }}
             />
           </L>
           {kind === "iphone" ? (
@@ -201,7 +303,7 @@ function Dashboard() {
                   value={phone.storage}
                   onChange={(e) => setPhone({ ...phone, storage: e.target.value })}
                 >
-                  {["128GB", "256GB", "512GB", "1TB"].map((x) => (
+                  {["128GB", "256GB", "512GB", "1TB", "2TB"].map((x) => (
                     <option key={x}>{x}</option>
                   ))}
                 </select>
@@ -248,6 +350,72 @@ function Dashboard() {
                 />
               </L>
             </>
+          ) : kind === "ipad" ? (
+            <>
+              <L t="Storage">
+                <select
+                  className="field w-full"
+                  value={tablet.storage}
+                  onChange={(e) => setTablet({ ...tablet, storage: e.target.value })}
+                >
+                  {["128GB", "256GB", "512GB", "1TB"].map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+              </L>
+              <L t="Connectivity">
+                <select
+                  className="field w-full"
+                  value={tablet.connectivity}
+                  onChange={(e) =>
+                    setTablet({ ...tablet, connectivity: e.target.value as Tablet["connectivity"] })
+                  }
+                >
+                  <option>Wi-Fi</option>
+                  <option>Wi-Fi + Cellular</option>
+                </select>
+              </L>
+              <L t="Condition">
+                <select
+                  className="field w-full"
+                  value={tablet.condition}
+                  onChange={(e) => setTablet({ ...tablet, condition: e.target.value as Condition })}
+                >
+                  <option value="new">New</option>
+                  <option value="preowned">Pre-Owned</option>
+                </select>
+              </L>
+            </>
+          ) : kind === "samsung" ? (
+            <>
+              <L t="Storage (optional)">
+                <input
+                  className="field w-full"
+                  placeholder="128GB"
+                  value={samsung.storage ?? ""}
+                  onChange={(e) =>
+                    setSamsung((current) => {
+                      const next = { ...current };
+                      if (e.target.value) next.storage = e.target.value;
+                      else delete next.storage;
+                      return next;
+                    })
+                  }
+                />
+              </L>
+              <L t="Condition">
+                <select
+                  className="field w-full"
+                  value={samsung.condition}
+                  onChange={(e) =>
+                    setSamsung({ ...samsung, condition: e.target.value as Condition })
+                  }
+                >
+                  <option value="new">New</option>
+                  <option value="preowned">Pre-Owned</option>
+                </select>
+              </L>
+            </>
           ) : (
             <>
               <L t="Accessory category">
@@ -285,23 +453,43 @@ function Dashboard() {
               type="number"
               min={0}
               className="field w-full"
-              value={kind === "iphone" ? phone.price : accessory.price}
-              onChange={(e) =>
+              value={
                 kind === "iphone"
-                  ? setPhone({ ...phone, price: +e.target.value })
-                  : setAccessory({ ...accessory, price: +e.target.value })
+                  ? phone.price
+                  : kind === "ipad"
+                    ? tablet.price
+                    : kind === "samsung"
+                      ? samsung.price
+                      : accessory.price
               }
+              onChange={(e) => {
+                const price = +e.target.value;
+                if (kind === "iphone") setPhone({ ...phone, price });
+                else if (kind === "ipad") setTablet({ ...tablet, price });
+                else if (kind === "samsung") setSamsung({ ...samsung, price });
+                else setAccessory({ ...accessory, price });
+              }}
             />
           </L>
           <label className="flex items-end gap-2 pb-2 text-sm">
             <input
               type="checkbox"
-              checked={kind === "iphone" ? phone.featured : accessory.featured}
-              onChange={(e) =>
+              checked={
                 kind === "iphone"
-                  ? setPhone({ ...phone, featured: e.target.checked })
-                  : setAccessory({ ...accessory, featured: e.target.checked })
+                  ? phone.featured
+                  : kind === "ipad"
+                    ? tablet.featured
+                    : kind === "samsung"
+                      ? samsung.featured
+                      : accessory.featured
               }
+              onChange={(e) => {
+                const featured = e.target.checked;
+                if (kind === "iphone") setPhone({ ...phone, featured });
+                else if (kind === "ipad") setTablet({ ...tablet, featured });
+                else if (kind === "samsung") setSamsung({ ...samsung, featured });
+                else setAccessory({ ...accessory, featured });
+              }}
             />{" "}
             Featured
           </label>
@@ -314,7 +502,7 @@ function Dashboard() {
         <div className="mt-5 divide-y divide-border">
           {inventory.map((p) => (
             <div key={p.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
-              {p.category === "iphone" && (
+              {p.category === "iphone" && p.colorHex && (
                 <span
                   className="h-5 w-5 rounded-full ring-1 ring-border"
                   style={{ background: p.colorHex }}
@@ -323,12 +511,19 @@ function Dashboard() {
               <div className="min-w-40 flex-1">
                 <p className="font-medium">
                   {p.model}
-                  {p.category === "iphone" ? ` · ${p.storage}` : ""}
+                  {(p.category === "iphone" || p.category === "samsung" || p.category === "ipad") &&
+                  p.storage
+                    ? ` · ${p.storage}`
+                    : ""}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {p.category === "iphone"
-                    ? `${p.colorName} · ${p.condition === "new" ? "New" : "Pre-Owned"} · ${p.battery}%`
-                    : `${p.accessoryType} · ${p.compatibleWith}`}
+                    ? `${p.colorName ? `${p.colorName} · ` : ""}${p.condition === "new" ? "New" : "Pre-Owned"} · ${p.battery}%`
+                    : p.category === "samsung"
+                      ? `${p.condition === "new" ? "New" : "Pre-Owned"} · Samsung`
+                      : p.category === "ipad"
+                        ? `${p.connectivity} · ${p.condition === "new" ? "New" : "Pre-Owned"}`
+                        : `${p.accessoryType} · ${p.compatibleWith}`}
                 </p>
               </div>
               <label className="flex items-center gap-1">

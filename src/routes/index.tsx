@@ -6,16 +6,20 @@ import { PhoneMockup, ProductCard } from "@/components/Shell";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Johnny Tech - New & Certified Pre-Owned iPhones" },
+      { title: "Johnny Tech | Authentic iPhones, Samsung & iPads in Harare" },
       {
         name: "description",
         content:
-          "Shop brand-new sealed and certified pre-owned iPhones with verified battery health and instant trade-in.",
+          "Shop authentic iPhones, Samsung phones, and iPads in Harare. Enjoy a 6-month warranty, free CBD delivery, and convenient WhatsApp ordering with Johnny Tech.",
       },
-      { property: "og:title", content: "Johnny Tech — New & Certified Pre-Owned iPhones" },
+      {
+        property: "og:title",
+        content: "Johnny Tech | Authentic iPhones, Samsung & iPads in Harare",
+      },
       {
         property: "og:description",
-        content: "Brand-new sealed and certified pre-owned iPhones. Trade in and top up.",
+        content:
+          "Shop authentic iPhones, Samsung phones, and iPads in Harare. Enjoy a 6-month warranty, free CBD delivery, and convenient WhatsApp ordering with Johnny Tech.",
       },
     ],
   }),
@@ -74,13 +78,26 @@ function Index() {
           <div className="mt-14 flex items-end gap-6">
             {featuredPhones.slice(1, 2).map((p) => (
               <div key={p.id} className="hidden translate-y-6 sm:block">
-                <PhoneMockup hex={p.colorHex} />
+                <PhoneMockup
+                  hex={p.colorHex ?? "#252a32"}
+                  model={p.model}
+                  colorName={p.colorName}
+                />
               </div>
             ))}
-            <PhoneMockup hex={hero.colorHex} size="lg" />
+            <PhoneMockup
+              hex={hero.colorHex ?? "#252a32"}
+              model={hero.model}
+              colorName={hero.colorName}
+              size="lg"
+            />
             {featuredPhones.slice(2, 3).map((p) => (
               <div key={p.id} className="hidden translate-y-6 sm:block">
-                <PhoneMockup hex={p.colorHex} />
+                <PhoneMockup
+                  hex={p.colorHex ?? "#252a32"}
+                  model={p.model}
+                  colorName={p.colorName}
+                />
               </div>
             ))}
           </div>

@@ -1,16 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BatteryCharging,
   Cable,
   Headphones,
   MapPin,
   Menu,
-  Moon,
   Package,
   ShieldCheck,
   Smartphone,
-  Sun,
 } from "lucide-react";
 import {
   Sheet,
@@ -24,22 +22,17 @@ import {
   useStore,
   type Product,
   type Phone,
+  isSmartphone,
+  isDevice,
   conditionLabel,
   waLink,
   buyMessage,
+  formatPhoneNumber,
 } from "@/lib/store";
 
 export function Navbar() {
   const { settings } = useStore();
-  const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(() => {
-    setDark(localStorage.getItem("jt-dark") === "1");
-  }, []);
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("jt-dark", dark ? "1" : "0");
-  }, [dark]);
   const links = [
     ["/", "Home"],
     ["/shop", "Shop"],
@@ -83,15 +76,6 @@ export function Navbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            aria-label={`Switch to ${dark ? "light" : "dark"} mode`}
-            title={`Switch to ${dark ? "light" : "dark"} mode`}
-            onClick={() => setDark(!dark)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
@@ -140,26 +124,238 @@ export function Footer() {
   const { settings } = useStore();
   return (
     <footer className="glass-nav mt-24 border-t border-border">
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:justify-between">
-        <p>
-          © {new Date().getFullYear()} {settings.storeName}. iPhones & accessories.
-        </p>
-        <p>WhatsApp: +{settings.whatsapp}</p>
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <p className="text-sm font-medium">6 Months Warranty</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <Package className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <p className="text-sm font-medium">Free CBD Delivery</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Shop C23 Eastgate Market, Cnr Robert Mugabe &amp; Wynne St, Harare
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col gap-2 border-t border-border pt-5 text-xs text-muted-foreground sm:flex-row sm:justify-between">
+          <p>
+            © {new Date().getFullYear()} {settings.storeName}. Phones & accessories.
+          </p>
+          <a
+            href={waLink(settings.whatsapp, "Hello Johnny Tech!")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground"
+          >
+            WhatsApp: {formatPhoneNumber(settings.whatsapp)}
+          </a>
+          <a
+            href="https://wa.me/263785253220?text=Hi%20Mashy%20Ltd!%20I%20saw%20the%20Johnny%20Tech%20website%20and%20would%20like%20one%20for%20my%20business."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground"
+          >
+            Website by Mashy Ltd
+          </a>
+        </div>
       </div>
     </footer>
   );
 }
 
-export function PhoneMockup({ hex, size = "md" }: { hex: string; size?: "md" | "lg" }) {
+export function PhoneMockup({
+  hex,
+  size = "md",
+  model = "iPhone 16",
+  colorName,
+}: {
+  hex: string;
+  size?: "md" | "lg";
+  model?: string;
+  colorName?: string | undefined;
+}) {
+  const generation = Number(/\biPhone\s+(\d+)\b/i.exec(model)?.[1] ?? 16);
+  const isPro14 = generation === 14 && /\bpro\b/i.test(model);
+  const frame =
+    generation === 11
+      ? "classic-notch"
+      : generation === 12 || generation === 13 || (generation === 14 && !isPro14)
+        ? "flat-notch"
+        : isPro14
+          ? "pro-island"
+          : generation === 17 || generation === 18
+            ? "flagship"
+            : "dynamic-island";
   const dims = size === "lg" ? "h-80 w-40" : "h-44 w-[5.5rem]";
+  const rounding =
+    frame === "classic-notch"
+      ? "rounded-[2rem]"
+      : frame === "flat-notch"
+        ? "rounded-[14px]"
+        : frame === "flagship"
+          ? "rounded-[18px]"
+          : "rounded-[16px]";
+  const bezel =
+    frame === "flagship" ? "p-[2px]" : frame === "dynamic-island" ? "p-[3px]" : "p-[4px]";
+  const screenRounding =
+    frame === "classic-notch"
+      ? "rounded-[1.6rem]"
+      : frame === "flat-notch"
+        ? "rounded-[11px]"
+        : frame === "flagship"
+          ? "rounded-[15px]"
+          : "rounded-[13px]";
+  const metalFrame =
+    frame === "classic-notch"
+      ? `linear-gradient(135deg, #d8dce2 0%, ${hex} 28%, #303640 70%, #bac1ca 100%)`
+      : frame === "flat-notch"
+        ? `linear-gradient(135deg, #e1e5eb 0%, ${hex} 26%, #252b34 72%, #aeb6c1 100%)`
+        : `linear-gradient(135deg, #e0e4ea 0%, ${hex} 24%, #252b35 70%, #aab3bf 100%)`;
+  const wallpaper =
+    frame === "classic-notch"
+      ? "radial-gradient(ellipse at 70% 18%, rgba(86, 124, 191, .45), transparent 38%), linear-gradient(145deg, #18253b, #26354e 52%, #101726)"
+      : `radial-gradient(ellipse at 72% 20%, ${hex} 0%, transparent 42%), radial-gradient(ellipse at 22% 78%, rgba(103, 105, 229, .48), transparent 46%), linear-gradient(145deg, #101b31, #1d2841 54%, #101624)`;
   return (
     <div
-      className={`relative ${dims} rounded-[2rem] p-1.5 shadow-phone`}
-      style={{ background: hex }}
+      data-iphone-frame={frame}
+      data-finish={colorName}
+      role="img"
+      aria-label={`${model} hardware mockup${colorName ? ` in ${colorName}` : ""}`}
+      className={`relative ${dims} ${rounding} ${bezel} shadow-phone`}
+      style={{ background: metalFrame }}
     >
-      <div className="relative h-full w-full overflow-hidden rounded-[1.6rem] bg-screen">
-        <div className="absolute left-1/2 top-2 h-3.5 w-1/3 -translate-x-1/2 rounded-full bg-island" />
-        <div className="absolute inset-0 bg-screen-glow" />
+      <div
+        className={`relative h-full w-full overflow-hidden ring-1 ring-white/10 ${screenRounding}`}
+        style={{ background: wallpaper }}
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.12),transparent_52%)]" />
+        {frame === "classic-notch" || frame === "flat-notch" ? (
+          <div
+            data-testid={frame === "classic-notch" ? "iphone-wide-notch" : "iphone-notch"}
+            className={`absolute left-1/2 top-0 -translate-x-1/2 rounded-b-[10px] bg-[#05070a] ${
+              frame === "classic-notch" ? "h-3 w-[40%]" : "h-[9px] w-[30%]"
+            }`}
+          >
+            <span className="absolute left-1/2 top-[2px] h-[2px] w-5 -translate-x-1/2 rounded-full bg-[#242831]" />
+            <span className="absolute right-1.5 top-[3px] h-[3px] w-[3px] rounded-full bg-[#111722]" />
+          </div>
+        ) : (
+          <div
+            data-testid={frame === "flagship" ? "iphone-refined-island" : "iphone-dynamic-island"}
+            className={`absolute left-1/2 top-[4px] -translate-x-1/2 rounded-full bg-island shadow-[0_1px_3px_rgba(0,0,0,0.55)] ${
+              frame === "flagship" ? "h-[9px] w-[31%]" : "h-3 w-[36%]"
+            }`}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IPadMockup({ model }: { model: string }) {
+  return (
+    <div className="my-6 flex h-44 items-center justify-center">
+      <div
+        data-ipad-frame
+        role="img"
+        aria-label={`${model} tablet hardware mockup`}
+        className="aspect-[4/3] w-36 rounded-[14px] p-[2px] shadow-phone"
+        style={{
+          background: "linear-gradient(135deg, #d6dbe2, #69717c 38%, #22262d 70%, #aeb5bf)",
+        }}
+      >
+        <div className="relative h-full w-full rounded-[12px] bg-[#111318] p-[4px]">
+          <div
+            className="relative h-full w-full overflow-hidden rounded-[9px]"
+            style={{
+              background:
+                "radial-gradient(ellipse at 72% 24%, rgba(108, 151, 255, .9), transparent 38%), radial-gradient(ellipse at 28% 78%, rgba(180, 95, 235, .72), transparent 44%), linear-gradient(135deg, #10275c 0%, #243b7d 48%, #111a3d 100%)",
+            }}
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.2),transparent_58%)]" />
+            <div
+              data-testid="ipad-dock"
+              className="absolute bottom-1 left-1/2 flex -translate-x-1/2 gap-1 rounded-[7px] border border-white/15 bg-white/15 p-1 backdrop-blur-sm"
+            >
+              <span className="h-3 w-3 rounded-[4px] bg-sky-300/80" />
+              <span className="h-3 w-3 rounded-[4px] bg-emerald-300/80" />
+              <span className="h-3 w-3 rounded-[4px] bg-violet-300/80" />
+              <span className="h-3 w-3 rounded-[4px] bg-amber-200/80" />
+            </div>
+          </div>
+          <div
+            data-testid="ipad-camera"
+            className="absolute left-1/2 top-[1px] h-[3px] w-[3px] -translate-x-1/2 rounded-full bg-[#030405] ring-1 ring-white/25"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function SamsungMockup({ model }: { model: string }) {
+  const name = model.toLowerCase();
+  const fold = name.includes("z fold");
+  const flip = name.includes("z flip");
+  const ultra = /\bs\d+\s+ultra\b/.test(name);
+  const notch = /\ba(?:07|17)\b/.test(name);
+  const frame = fold ? "fold" : flip ? "flip" : ultra ? "ultra" : "galaxy";
+  const dimensions = fold
+    ? "h-28 w-36 rounded-[10px]"
+    : flip
+      ? "h-44 w-[4.75rem] rounded-[16px]"
+      : ultra
+        ? "h-44 w-[5.5rem] rounded-[6px]"
+        : "h-44 w-[5.5rem] rounded-[16px]";
+  const screenBackground = ultra
+    ? "linear-gradient(145deg, #c0c7d0 0%, #7a8491 24%, #303846 60%, #111722 100%)"
+    : "radial-gradient(ellipse at 68% 28%, rgba(119, 111, 255, .9), transparent 38%), radial-gradient(ellipse at 28% 80%, rgba(38, 231, 183, .8), transparent 44%), linear-gradient(140deg, #15376f 0%, #322078 52%, #0c2348 100%)";
+  return (
+    <div className="my-6 flex h-44 items-center justify-center">
+      <div
+        data-samsung-frame={frame}
+        role="img"
+        aria-label={`${model} hardware mockup`}
+        className={`relative ${dimensions} ${ultra ? "p-[2px]" : "p-[3px]"} shadow-phone`}
+        style={{
+          background: ultra
+            ? "linear-gradient(135deg, #e0e3e8, #626b78 34%, #171c24 70%, #a9b0ba)"
+            : "linear-gradient(135deg, #d9e1eb, #45546b 35%, #151d2b 68%, #9aacc2)",
+        }}
+      >
+        <div
+          className={`relative h-full w-full overflow-hidden ring-1 ring-white/10 ${fold ? "rounded-[7px]" : ultra ? "rounded-[4px]" : "rounded-[13px]"}`}
+          style={{ background: screenBackground }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.16),transparent_48%)]" />
+          {fold && (
+            <div
+              data-testid="fold-crease"
+              className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/25 shadow-[1px_0_4px_rgba(0,0,0,0.55)]"
+            />
+          )}
+          {flip && (
+            <div
+              data-testid="flip-hinge"
+              className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/30 shadow-[0_1px_4px_rgba(0,0,0,0.55)]"
+            />
+          )}
+          {notch ? (
+            <div
+              data-testid="samsung-notch"
+              className="absolute left-1/2 top-0 h-2 w-7 -translate-x-1/2 rounded-b-[10px] bg-[#080b12]"
+            />
+          ) : (
+            <div
+              data-testid="samsung-punch-hole"
+              className="absolute left-1/2 top-[5px] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-[#05070a] shadow-[0_0_0_1px_rgba(255,255,255,0.3)]"
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -170,11 +366,13 @@ export function ProductCard({ p: first, variants }: { p: Product; variants?: Pho
   const [sel, setSel] = useState(first.id);
   const opts = first.category === "iphone" && variants?.length ? variants : [first];
   const p = opts.find((v) => v.id === sel) ?? first;
-  const phone = p.category === "iphone";
+  const phone = isSmartphone(p);
+  const device = isDevice(p);
+  const ipad = p.category === "ipad" || /\bipad\b/i.test(p.model);
   return (
     <div className={`bento-card flex flex-col p-6 ${p.inStock ? "card-lift" : "opacity-60"}`}>
       <div className="flex justify-between">
-        {phone ? (
+        {device ? (
           <span className={p.condition === "new" ? "badge-new" : "badge-cpo"}>
             {conditionLabel(p.condition)}
           </span>
@@ -183,19 +381,30 @@ export function ProductCard({ p: first, variants }: { p: Product; variants?: Pho
         )}
         {!p.inStock && <span className="badge-sold">Sold Out</span>}
       </div>
-      {phone ? (
+      {ipad ? (
+        <IPadMockup model={p.model} />
+      ) : p.category === "samsung" ? (
+        <SamsungMockup model={p.model} />
+      ) : phone ? (
         <div className="my-6 flex justify-center">
-          <PhoneMockup hex={p.colorHex} />
+          <PhoneMockup
+            hex={p.category === "iphone" ? (p.colorHex ?? "#252a32") : "#252a32"}
+            model={p.model}
+            colorName={p.category === "iphone" ? p.colorName : undefined}
+          />
         </div>
       ) : (
         <div className="my-6 flex h-44 items-center justify-center rounded-2xl bg-secondary/60 text-primary">
           <AccessoryIcon type={p.accessoryType} />
         </div>
       )}
-      {phone && (
+      {p.category === "iphone" && p.colorName && p.colorHex && (
         <div className="mb-3 flex items-center gap-2">
           {opts
-            .filter((v): v is Phone => v.category === "iphone")
+            .filter(
+              (v): v is Phone & { colorName: string; colorHex: string } =>
+                v.category === "iphone" && Boolean(v.colorName && v.colorHex),
+            )
             .map((v) => (
               <button
                 key={v.id}
@@ -213,8 +422,17 @@ export function ProductCard({ p: first, variants }: { p: Product; variants?: Pho
       <div className="mt-1 flex flex-wrap gap-2 text-xs">
         {phone ? (
           <>
+            {p.storage && <span className="chip">{p.storage}</span>}
+            {p.category === "iphone" ? (
+              <span className="chip">{p.battery}% Battery Health</span>
+            ) : (
+              <span className="chip">Samsung</span>
+            )}
+          </>
+        ) : p.category === "ipad" ? (
+          <>
             <span className="chip">{p.storage}</span>
-            <span className="chip">{p.battery}% Battery Health</span>
+            <span className="chip">{p.connectivity}</span>
           </>
         ) : (
           <>
@@ -229,7 +447,7 @@ export function ProductCard({ p: first, variants }: { p: Product; variants?: Pho
           <a
             href={waLink(settings.whatsapp, buyMessage(p))}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="btn-apple text-sm"
           >
             Buy on WhatsApp

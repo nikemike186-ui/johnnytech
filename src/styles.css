@@ -21,11 +21,11 @@
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
  *
- * The :root and .dark blocks define the actual color values using oklch.
+ * The :root block defines the app's permanent dark color values using oklch.
  * All colors MUST use oklch format.
  *
  * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 1. Add the variable to :root
  * 2. Register it in @theme inline as --color-<name>: var(--<name>)
  */
 
@@ -73,38 +73,8 @@
 }
 
 :root {
+  color-scheme: dark;
   --radius: 1.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.21 0.03 265);
-  --card: oklch(1 0 0 / 65%);
-  --card-foreground: oklch(0.22 0.003 286);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.003 286);
-  --primary: oklch(0.59 0.22 13);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.94 0.002 286);
-  --secondary-foreground: oklch(0.22 0.003 286);
-  --muted: oklch(0.94 0.002 286);
-  --muted-foreground: oklch(0.45 0.03 257);
-  --accent: oklch(0.94 0.002 286);
-  --accent-foreground: oklch(0.22 0.003 286);
-  --destructive: oklch(0.6 0.22 27);
-  --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.6 0.16 150);
-  --warning: oklch(0.68 0.15 60);
-  --border: oklch(0.94 0.03 15);
-  --input: oklch(1 0 0 / 80%);
-  --ring: oklch(0.59 0.22 13);
-  --nav: oklch(1 0 0 / 70%);
-  --glass-edge: oklch(1 0 0 / 80%);
-  --glow-1: oklch(0.64 0.24 12 / 28%);
-  --glow-2: oklch(0.58 0.22 27 / 22%);
-  --screen: oklch(0.14 0.01 270);
-  --island: oklch(0.05 0 0);
-  --shadow-card: 0 8px 32px oklch(0.58 0.22 27 / 8%), inset 0 1px 0 oklch(1 0 0 / 90%);
-  --shadow-lift: 0 24px 56px -12px oklch(0.58 0.22 27 / 22%), inset 0 1px 0 oklch(1 0 0 / 90%);
-}
-.dark {
   --background: oklch(0.16 0.003 270);
   --foreground: oklch(0.96 0.002 286);
   --card: oklch(0.24 0.02 15 / 55%);
@@ -112,18 +82,26 @@
   --popover: oklch(0.22 0.004 270);
   --popover-foreground: oklch(0.96 0.002 286);
   --primary: oklch(0.64 0.22 13);
+  --primary-foreground: oklch(0.13 0.02 265);
   --secondary: oklch(0.28 0.005 270);
   --secondary-foreground: oklch(0.96 0.002 286);
   --muted: oklch(0.28 0.005 270);
   --muted-foreground: oklch(0.7 0.008 286);
   --accent: oklch(0.28 0.005 270);
   --accent-foreground: oklch(0.96 0.002 286);
+  --destructive: oklch(0.6 0.22 27);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.6 0.16 150);
+  --warning: oklch(0.68 0.15 60);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.64 0.22 13);
   --nav: oklch(0.18 0.01 15 / 65%);
   --glass-edge: oklch(1 0 0 / 12%);
   --glow-1: oklch(0.55 0.22 12 / 30%);
   --glow-2: oklch(0.5 0.2 27 / 22%);
+  --screen: oklch(0.14 0.01 270);
+  --island: oklch(0.05 0 0);
   --shadow-card: 0 2px 12px -4px oklch(0 0 0 / 40%);
   --shadow-lift: 0 24px 48px -16px oklch(0 0 0 / 60%);
 }
@@ -355,5 +333,31 @@
 @keyframes pulse {
   50% {
     opacity: 0.35;
+  }
+}
+@utility animate-pin-shake {
+  animation: pin-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pin-shake {
+    animation: none;
   }
 }

@@ -1,20 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { useStore, type Product } from "@/lib/store";
+import { isDevice, useStore, type Product } from "@/lib/store";
 import { ProductCard } from "@/components/Shell";
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
     meta: [
-      { title: "Shop iPhones & Accessories — Johnny Tech" },
+      { title: "Shop iPhones, iPads, Samsung & Accessories — Johnny Tech" },
       {
         name: "description",
         content:
-          "Shop iPhones, MagSafe power packs, chargers, screen guards and audio accessories.",
+          "Shop iPhones, iPads, Samsung phones, MagSafe power packs, chargers, screen guards and audio accessories.",
       },
-      { property: "og:title", content: "Shop iPhones & Accessories — Johnny Tech" },
-      { property: "og:description", content: "Browse iPhones and everyday accessories." },
+      { property: "og:title", content: "Shop iPhones, iPads, Samsung & Accessories — Johnny Tech" },
+      {
+        property: "og:description",
+        content: "Browse iPhones, iPads, Samsung phones and accessories.",
+      },
     ],
   }),
   component: Shop,
@@ -22,19 +25,20 @@ export const Route = createFileRoute("/shop")({
 
 function Shop() {
   const { inventory } = useStore();
-  const [category, setCategory] = useState<"all" | "iphone" | "accessory">("all");
+  const [category, setCategory] = useState<"all" | "iphone" | "ipad" | "samsung" | "accessory">(
+    "all",
+  );
   const [condition, setCondition] = useState<"all" | "new" | "preowned">("all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"none" | "asc" | "desc">("none");
   const list = useMemo(() => {
     let products = inventory.filter((product) => {
       if (category !== "all" && product.category !== category) return false;
-      if (condition !== "all" && (product.category !== "iphone" || product.condition !== condition))
+      if (condition !== "all" && (!isDevice(product) || product.condition !== condition))
         return false;
-      const details =
-        product.category === "iphone"
-          ? `${product.model} ${product.storage} ${product.colorName} ${product.condition}`
-          : `${product.model} ${product.accessoryType} ${product.description} ${product.compatibleWith}`;
+      const details = isDevice(product)
+        ? `${product.model} ${product.storage ?? ""} ${product.category === "iphone" ? (product.colorName ?? "") : product.category === "ipad" ? product.connectivity : ""} ${product.condition}`
+        : `${product.model} ${product.accessoryType} ${product.description} ${product.compatibleWith}`;
       return details.toLowerCase().includes(q.trim().toLowerCase());
     });
     if (sort === "asc") products = [...products].sort((a, b) => a.price - b.price);
@@ -43,7 +47,7 @@ function Shop() {
     products.forEach((product) => {
       const key =
         product.category === "iphone"
-          ? `${product.model}|${product.storage}|${product.condition}|${product.price}|${product.battery}`
+          ? `${product.category}|${product.model}|${product.storage}|${product.condition}|${product.price}|${product.battery}`
           : product.id;
       groups.set(key, [...(groups.get(key) ?? []), product]);
     });
@@ -59,6 +63,8 @@ function Shop() {
             [
               ["all", "Everything"],
               ["iphone", "iPhones"],
+              ["ipad", "iPads"],
+              ["samsung", "Samsung"],
               ["accessory", "Accessories"],
             ] as const
           ).map(([value, label]) => (
