@@ -1,8 +1,7 @@
 {
-  "name": "johnny-tech-iphone-store",
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "johnny-tech-demo",
   "compatibility_date": "2026-11-24",
-  "assets": {
-    "directory": "./dist/client",
-    "not_found_handling": "single-page-application"
-  }
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry"
 }
